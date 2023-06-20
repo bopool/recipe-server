@@ -24,6 +24,90 @@ from mysql_connection import get_connection
  
 
 
+class MyRecipeListResource(Resource):
+    @jwt_required()
+    def get(self) : 
+        user_id = get_jwt_identity() # 복호화해서 갖다놓는다. 
+        try:
+            connection = get_connection()
+            query = '''select * from recipe
+                    where user_id = %s;'''
+            record = ( user_id, )
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute(query, record)
+            result_list = cursor.fetchall()
+            cursor.close()
+            connection.close()
+
+        except Error as e:
+            print(e)
+            return{'result':'fail', 'error':str(e)}, 400
+        
+        print(result_list)
+
+        # 가공이 필요하면 가공한다. 
+        i = 0
+        for row in result_list :
+            result_list[i]['created_at']= row['created_at'].isoformat()
+            result_list[i]['updated_at']= row['updated_at'].isoformat()
+            i = i + 1
+
+        return {'result':'success', 'count':len(result_list), 'items':result_list}
+
+
+
+class RecipePublishResource(Resource) :
+    @jwt_required() 
+    def put(self, recipe_id) : 
+        # 1. 클라이언트로부터 데이터 받아온다.
+        # API 명세서를 본다. 
+        user_id = get_jwt_identity()
+
+        # 2. DB처리한다. 
+        try : 
+            connection = get_connection()
+            query = '''update recipe 
+                    set is_publish = 1
+                    where id = %s and user_id = %s;'''
+            record = ( recipe_id, user_id )
+            cursor = connection.cursor()
+            cursor.execute(query, record)
+            connection.commit()
+            cursor.close()
+            connection.close()
+
+        except Error as e:
+            print(e)
+            return {'result':'fail', 'error':str(e)}, 500
+        
+        return {'result':'success'}
+    
+    @jwt_required() 
+    def delete(self, recipe_id) : 
+        # 1. 클라이언트로부터 데이터 받아온다.
+        # API 명세서를 본다. 
+        user_id = get_jwt_identity()
+
+        # 2. DB처리한다. 
+        try : 
+            connection = get_connection()
+            query = '''update recipe 
+                    set is_publish = 0
+                    where id = %s and user_id = %s;'''
+            record = ( recipe_id, user_id )
+            cursor = connection.cursor()
+            cursor.execute(query, record)
+            connection.commit()
+            cursor.close()
+            connection.close()
+
+        except Error as e:
+            print(e)
+            return {'result':'fail', 'error':str(e)}, 500
+        
+        return {'result':'success'}
+
+
 # 경로가 다르면 새로운 클래스 생성해야 함. 
 class RecipeResource(Resource) : 
     # GET 메소드에서 경로로 넘어오는 변수는 GET함수의 파라미터로 적어주면 된다. 
@@ -219,14 +303,11 @@ class RecipeListResource(Resource) :
                 result_list[i]['updated_at']= row['updated_at'].isoformat()
                 i = i + 1
 
-            return {'result':'success', 'count':len(result_list), 'items': result_list}
-
-
-            return {"result":"success", "count":3}, 400
-            # , 400은 상태코드 설정. 
 
         except Error as e :
             print(e)
             return {'result':'fail', 'error':str(e)}, 500
         
 
+        return {'result':'success', 'count':len(result_list), 'items': result_list}, 400
+        # , 400은 상태코드 설정. 
